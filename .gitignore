@@ -55,6 +55,9 @@ local_settings.py
 
 # Flask stuff:
 instance/
+
+# Ignore file with all logs
+ulx_logs/
 .webassets-cache
 
 # Scrapy stuff:
