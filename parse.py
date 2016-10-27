@@ -23,7 +23,7 @@ class LogLine():
     @property
     def is_ent_spawned_line(self):
         return self.line_type == "ent_spawned"
-    
+
     @property
     def is_tool_used_line(self):
         return self.line_type == "tool_used"
@@ -37,10 +37,10 @@ class LogLine():
         return self.line_type == "kill"
 
     def _determine_line_type(self):
-        ent_spawned_regex = r'^\[\d\d:\d\d:\d\d] (.*)<(.*)> spawned (?:vehicle|model|sent) (.*)\r'
-        chat_regex = r'^\[\d\d:\d\d:\d\d] (.*): (.*)\r'
-        tool_used_regex = r'^\[\d\d:\d\d:\d\d] (.*)<(.*)> used the tool (\w*) on (.*)\r'
-        kill_regex = r'^\[\d\d:\d\d:\d\d] (.*) killed (.*) using (.*)\r'
+        ent_spawned_regex = r'^\[\d\d:\d\d:\d\d] (.*)<(.*)> spawned (?:vehicle|model|sent) (.*)'
+        chat_regex = r'^\[\d\d:\d\d:\d\d] (.*): (.*)'
+        tool_used_regex = r'^\[\d\d:\d\d:\d\d] (.*)<(.*)> used the tool (\w*) on (.*)'
+        kill_regex = r'^\[\d\d:\d\d:\d\d] (.*) killed (.*) using (.*)'
 
         matches = []
 
@@ -53,13 +53,13 @@ class LogLine():
         if tool_used:
             matches.append({'match': tool_used, 'line_type': 'tool_used'})
 
-        chat = re.search(chat_regex, self.text)
-        if chat:
-            matches.append({'match': chat, 'line_type': 'chat'})
-
         kill = re.search(kill_regex, self.text)
         if kill:
             matches.append({'match': kill, 'line_type': 'kill'})
+
+        chat = re.search(chat_regex, self.text)
+        if chat:
+            matches.append({'match': chat, 'line_type': 'chat'})
 
         if len(matches) > 1:
             print('')
@@ -93,8 +93,9 @@ class LogLine():
 
         elif self.is_kill_line:
             return match.group(2)
-            # return {'victim': match.group(2),
-            #         'weapon': match.group(3)}
+
+        elif self.is_chat_line:
+            return match.group(2)
 
         return None
 
@@ -120,22 +121,27 @@ class Parser():
         self.parse_file()
 
     def parse_file(self):
-        for data_file in self.file_paths:
+        num_files = len(self.file_paths)
+        for index, data_file in enumerate(self.file_paths):
             filename = "ulx_logs/"+data_file
-            
+
             with open(filename) as log:
+                print('Processing: {} ...'.format(filename))
                 log_text = log.read()
                 lines = log_text.split("\n")
 
                 # Main parsing loop
                 for line in lines:
                     self.parse_line(line)
+                print('Finished processing [{}]. {}/{}'.format(filename, index+1, num_files))
+                print('')
 
         timestamp = int(time.time())
-        json_deaths = json.dumps({'global_deaths': self.deaths_global, 'player_deaths': self.deaths_people})
-        json_kills = json.dumps({'global_kills': self.kills_global, 'player_kills': self.kills_people})
-        json_tools = json.dumps({'global_tools_used': self.tools_used_global, 'player_tools_used': self.tools_used_people})
-        json_ents = json.dumps({'global_ents_spawned': self.ents_spawned_global, 'player_ents_spawned': self.ents_spawned_people})
+        json_deaths = json.dumps({'global_deaths': self.deaths_global, 'player_deaths': self.deaths_people}, ensure_ascii=False)
+        json_kills = json.dumps({'global_kills': self.kills_global, 'player_kills': self.kills_people}, ensure_ascii=False)
+        json_tools = json.dumps({'global_tools_used': self.tools_used_global, 'player_tools_used': self.tools_used_people}, ensure_ascii=False)
+        json_ents = json.dumps({'global_ents_spawned': self.ents_spawned_global, 'player_ents_spawned': self.ents_spawned_people}, ensure_ascii=False)
+        json_words = json.dumps({'global_words_said': self.words_said_global, 'player_words_said': self.words_said_people}, ensure_ascii=False)
         with open('json_deaths', 'w') as save_file:
             print "Saving json_deaths.."
             save_file.write(json_deaths)
@@ -156,14 +162,17 @@ class Parser():
             save_file.write(json_ents)
             print "Saved!"
 
-
+        with open('json_words', 'w') as save_file:
+            print "Saving json_words.."
+            save_file.write(json_words)
+            print "Saved!"
 
     def parse_line(self, line_text):
         line = LogLine(line_text)
 
         if line.line_type:
-            player = line.player
-            subject = line.subject
+            player = line.player.strip()
+            subject = line.subject.strip()
 
             if line.is_ent_spawned_line:
                 self.add_spawned_ent(player, subject)
@@ -182,6 +191,8 @@ class Parser():
         global_data = self.ents_spawned_global
         player_data = self.ents_spawned_people.get(player, {})
 
+        player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+
         global_data[ent] = global_data.get(ent, 0) + 1
 
         player_data[ent] = player_data.get(ent, 0) + 1
@@ -190,6 +201,8 @@ class Parser():
     def add_tool_used(self, player, tool):
         global_data = self.tools_used_global
         player_data = self.tools_used_people.get(player, {})
+
+        player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
 
         global_data[tool] = global_data.get(tool, 0) + 1
 
@@ -200,6 +213,9 @@ class Parser():
         global_data = self.kills_global
         player_data = self.kills_people.get(player, {})
 
+        player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        victim = victim.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+
         global_data[player] = global_data.get(player, 0) + 1
 
         player_data[victim] = player_data.get(victim, 0) + 1
@@ -209,14 +225,27 @@ class Parser():
         global_data = self.deaths_global
         player_data = self.deaths_people.get(player, {})
 
+        player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        killer = killer.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+
         global_data[player] = global_data.get(player, 0) + 1
 
         player_data[killer] = player_data.get(killer, 0) + 1
         self.deaths_people[player] = player_data
 
     def add_words(self, player, text):
-        pass
+        global_data = self.words_said_global
+        player_data = self.words_said_people.get(player, {})
+
+        split_text = text.split(' ')
+        for word in split_text:
+            word = word.decode('utf-8', 'replace').encode('utf-8', 'replace').lower().strip()
+            global_data[word] = global_data.get(word, 0) + 1
+            player_data[word] = player_data.get(word, 0) + 1
+
+        self.words_said_people[player] = player_data
 
 if __name__ == '__main__':
     files = listdir('ulx_logs/')
     Parser(files)
+    raw_input()
