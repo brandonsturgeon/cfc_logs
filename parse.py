@@ -12,10 +12,11 @@ pp = pprint.PrettyPrinter(indent=4)
 
 
 class LogLine():
-    def __init__(self, line_text):
+    def __init__(self, line_text, patterns):
         self.text = line_text
         self.player = None
         self.subject = None
+        self.patterns = patterns
 
         self.line_type = self._determine_line_type()
         if self.line_type:
@@ -23,6 +24,9 @@ class LogLine():
             self.subject = self._get_subject()
 
         self.regex_match = None
+
+        # regex
+
 
     @property
     def is_ent_spawned_line(self):
@@ -52,17 +56,16 @@ class LogLine():
     def is_kick_line(self):
         return self.line_type == "kick"
 
-    @staticmethod
-    def _get_regex_match(text):
-        chat_regex = r'^\[\d\d:\d\d:\d\d] (.*): (.*)\r'
-        ent_spawned_regex = r'^\[\d\d:\d\d:\d\d] (.*)<(.*)> spawned(?:/gave himself)? (?:vehicle|model|sent|ragdoll|swep) (.*)\r'
-        tool_used_regex = r'^\[\d\d:\d\d:\d\d] (.*)<(.*)> used the tool (\w*) on (.*)\r'
-        kill_regex = r'^\[\d\d:\d\d:\d\d] (.*) killed (.*) using (.*)\r'
-        killed_by_regex = r'^\[\d\d:\d\d:\d\d] (.*) was killed by (.*)\r'
-        connection_regex = r'^\[\d\d:\d\d:\d\d] Client \"(.*)\" connected.\r'
-        suicide_regex = r'^\[\d\d:\d\d:\d\d] (.*) suicided!\r'
-        kick_regex = r'^\[\d\d:\d\d:\d\d] (.*) kicked (.*) \((.*)\)\r'
-        ban_regex = r'^\[\d\d:\d\d:\d\d] (.*) banned (.*) (?:for \d* (?:minutes|hours|days)|permanently)(?: \(.*\))?\r'
+    def _get_regex_match(self, text):
+        chat_regex        = self.patterns['chat_regex']
+        ent_spawned_regex = self.patterns['ent_spawned_regex']
+        tool_used_regex   = self.patterns['tool_used_regex']
+        kill_regex        = self.patterns['kill_regex']
+        killed_by_regex   = self.patterns['killed_by_regex']
+        connection_regex  = self.patterns['connection_regex']
+        suicide_regex     = self.patterns['suicide_regex']
+        kick_regex        = self.patterns['kick_regex']
+        ban_regex         = self.patterns['ban_regex']
 
         chat = re.search(chat_regex, text)
         if chat:
@@ -70,32 +73,38 @@ class LogLine():
        
         # Always assume it's chat first, in case someone quotes console
         if not chat:
-            ent_spawned = re.search(ent_spawned_regex, text)
-            if ent_spawned:
-                return {'match': ent_spawned, 'line_type': 'ent_spawned'}
+            if 'spawned' in text:
+                ent_spawned = re.search(ent_spawned_regex, text)
+                if ent_spawned:
+                    return {'match': ent_spawned, 'line_type': 'ent_spawned'}
 
-            tool_used = re.search(tool_used_regex, text)
-            if tool_used:
-                return {'match': tool_used, 'line_type': 'tool_used'}
+            if 'used the tool' in text:
+                tool_used = re.search(tool_used_regex, text)
+                if tool_used:
+                    return {'match': tool_used, 'line_type': 'tool_used'}
 
-            kill = re.search(kill_regex, text)
-            killed_by = re.search(killed_by_regex, text)
-            if kill:
-                return {'match': kill, 'line_type': 'kill'}
-            elif killed_by:
-                return {'match': killed_by, 'line_type': 'kill'}
+            if 'killed' in text:
+                kill = re.search(kill_regex, text)
+                killed_by = re.search(killed_by_regex, text)
+                if kill:
+                    return {'match': kill, 'line_type': 'kill'}
+                elif killed_by:
+                    return {'match': killed_by, 'line_type': 'kill'}
 
-            connection = re.search(connection_regex, text)
-            if connection:
-                return {'match': connection, 'line_type': 'connection'}
+            if 'connected' in text:
+                connection = re.search(connection_regex, text)
+                if connection:
+                    return {'match': connection, 'line_type': 'connection'}
 
-            suicide = re.search(suicide_regex, text)
-            if suicide:
-                return {'match': suicide, 'line_type': 'suicide'}
+            if 'suicided' in text:
+                suicide = re.search(suicide_regex, text)
+                if suicide:
+                    return {'match': suicide, 'line_type': 'suicide'}
 
-            kick = re.search(kick_regex, text)
-            if kick:
-                return {'match': kick, 'line_type': 'kick'}
+            if 'kicked' in text:
+                kick = re.search(kick_regex, text)
+                if kick:
+                    return {'match': kick, 'line_type': 'kick'}
 
         return {}
 
@@ -170,6 +179,18 @@ class Parser():
         self.kicks_given_global = {}
         self.kicks_given_people = {}
 
+        self.regex_patterns = {
+            'chat_regex': re.compile(r'^\[\d\d:\d\d:\d\d] (.*): (.*)\r'),
+            'ent_spawned_regex': re.compile(r'^\[\d\d:\d\d:\d\d] (.*)<(.*)> spawned(?:/gave himself)? (?:vehicle|model|sent|ragdoll|swep) (.*)\r'),
+            'tool_used_regex': re.compile(r'^\[\d\d:\d\d:\d\d] (.*)<(.*)> used the tool (\w*) on (.*)\r'),
+            'kill_regex': re.compile(r'^\[\d\d:\d\d:\d\d] (.*) killed (.*) using (.*)\r'),
+            'killed_by_regex': re.compile(r'^\[\d\d:\d\d:\d\d] (.*) was killed by (.*)\r'),
+            'connection_regex': re.compile(r'^\[\d\d:\d\d:\d\d] Client \"(.*)\" connected.\r'),
+            'suicide_regex': re.compile(r'^\[\d\d:\d\d:\d\d] (.*) suicided!\r'),
+            'kick_regex': re.compile(r'^\[\d\d:\d\d:\d\d] (.*) kicked (.*) \((.*)\)\r'),
+            'ban_regex': re.compile(r'^\[\d\d:\d\d:\d\d] (.*) banned (.*) (?:for \d* (?:minutes|hours|days)|permanently)(?: \(.*\))?\r')
+        }
+
         self.parse_file()
 
     def parse_file(self):
@@ -187,29 +208,6 @@ class Parser():
 
             print('Finished processing [{}]. {}/{}'.format(filename, index+1, num_files))
             print('')
-
-            #print('Processing: {} ...'.format(filename))
-            #with open(filename) as log:
-            #    line_number = 0
-
-            #    # Main parsing loop
-            #    for line in log:
-            #        line_number += 1
-            #        self.parse_line(line)
-
-            #print('Finished processing [{}]. {}/{}'.format(filename, index+1, num_files))
-            #print('')
-
-            #with open(filename) as log:
-            #    print('Processing: {} ...'.format(filename))
-            #    log_text = log.read()
-            #    lines = log_text.split("\n")
-
-            #    # Main parsing loop
-            #    for line in lines:
-            #        self.parse_line(line)
-            #    print('Finished processing [{}]. {}/{}'.format(filename, index+1, num_files))
-            #    print('')
 
         self.save_data_to_files()
 
@@ -264,7 +262,7 @@ class Parser():
             print "Saved!"
 
     def parse_line(self, line_text):
-        line = LogLine(line_text)
+        line = LogLine(line_text, self.regex_patterns)
 
         if line.line_type:
             player = line.player.strip()
@@ -297,7 +295,8 @@ class Parser():
         global_data = self.ents_spawned_global
         player_data = self.ents_spawned_people.get(player, {})
 
-        player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        # player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        player = player.strip()
 
         global_data[ent] = global_data.get(ent, 0) + 1
 
@@ -308,7 +307,8 @@ class Parser():
         global_data = self.tools_used_global
         player_data = self.tools_used_people.get(player, {})
 
-        player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        # player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        player = player.strip()
 
         global_data[tool] = global_data.get(tool, 0) + 1
 
@@ -319,8 +319,10 @@ class Parser():
         global_data = self.kills_global
         player_data = self.kills_people.get(player, {})
 
-        player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
-        victim = victim.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        #player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        #victim = victim.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        player = player.strip()
+        victim = victim.strip()
 
         global_data[player] = global_data.get(player, 0) + 1
 
@@ -331,8 +333,10 @@ class Parser():
         global_data = self.deaths_global
         player_data = self.deaths_people.get(player, {})
 
-        player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
-        killer = killer.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        #player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        #killer = killer.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        player = player.strip()
+        killer = killer.strip()
 
         global_data[player] = global_data.get(player, 0) + 1
 
@@ -343,9 +347,9 @@ class Parser():
         global_data = self.words_said_global
         player_data = self.words_said_people.get(player, {})
 
-        split_text = text.split(' ')
+        _clean_text = text.decode('utf-8', 'replace').encode('utf-8', 'replace').lower().strip()
+        split_text = _clean_text.split(' ')
         for word in split_text:
-            word = word.decode('utf-8', 'replace').encode('utf-8', 'replace').lower().strip()
             global_data[word] = global_data.get(word, 0) + 1
             player_data[word] = player_data.get(word, 0) + 1
 
@@ -354,13 +358,16 @@ class Parser():
     def add_connection(self, player):
         global_data = self.connections_global
 
-        player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        #player = player.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        player = player.strip()
 
         self.connections_global[player] = global_data.get(player, 0) + 1
 
     def add_kick(self, admin, minge):
-        admin = admin.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
-        minge = minge.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        #admin = admin.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        #minge = minge.decode('utf-8', 'replace').encode('utf-8', 'replace').strip()
+        admin = admin.strip()
+        minge = minge.strip()
 
         # Given
         given_global_data = self.kicks_given_global  # { admin1: 25, admin2: 50, admin3: 12, phatso: 727 }
@@ -381,5 +388,5 @@ class Parser():
 
 if __name__ == '__main__':
     files = listdir('ulx_logs/')
-    #shuffle(files)
-    cProfile.run('Parser(files[:20])')
+    shuffle(files)
+    cProfile.run('Parser(files)')
