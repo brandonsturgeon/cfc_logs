@@ -1,2 +1,2 @@
 # cfc_logs
-Analyze and extract neat data from ulx logs
+Extract and analyze neat data from ulx logs
