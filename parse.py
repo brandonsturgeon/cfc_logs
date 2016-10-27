@@ -276,7 +276,9 @@ class Parser():
 
             elif line.is_kill_line:
                 self.add_kill(player, subject)
-                self.add_death(subject, player)
+
+                if subject != 'prop_physics':
+                    self.add_death(subject, player)
 
             elif line.is_chat_line:
                 self.add_words(player, subject)
@@ -389,4 +391,4 @@ class Parser():
 if __name__ == '__main__':
     files = listdir('ulx_logs/')
     shuffle(files)
-    cProfile.run('Parser(files)')
+    cProfile.run('Parser(files[:50])')
