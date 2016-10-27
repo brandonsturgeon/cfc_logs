@@ -1,5 +1,6 @@
 import json
 import operator
+import ujson
 
 class GetData():
     def __init__(self):
@@ -19,6 +20,14 @@ class GetData():
 
         self.global_words_said = None
         self.player_words_said = None
+
+        self.global_connections = None
+
+        self.global_kicks_given = None
+        self.player_kicks_given = None
+
+        self.global_kicks_received = None
+        self.player_kicks_received = None
 
         self.exclude_words = ['the', '!pvp', '!pvpon', 'on', 'off',
                          'i', 'you', 'a', 'to', 'it', 'is', 'I',
@@ -51,7 +60,7 @@ class GetData():
         with open('json_deaths', 'r') as json_deaths:
             print("Loading json_deaths...")
             json_data = json_deaths.read()
-            data = json.loads(unicode(json_data, "ISO-8859-1"))
+            data = ujson.loads(unicode(json_data, "ISO-8859-1"))
 
             self.global_deaths = data['global_deaths']
             self.player_deaths = data['player_deaths']
@@ -62,7 +71,7 @@ class GetData():
         with open('json_kills', 'r') as json_kills:
             print("Loading json_kills...")
             json_data = json_kills.read()
-            data = json.loads(unicode(json_data, "ISO-8859-1"))
+            data = ujson.loads(unicode(json_data, "ISO-8859-1"))
 
             self.global_kills = data['global_kills']
             self.player_kills = data['player_kills']
@@ -72,7 +81,7 @@ class GetData():
         with open('json_tools', 'r') as json_tools:
             print("Loading json_tools...")
             json_data = json_tools.read()
-            data = json.loads(unicode(json_data, "ISO-8859-1"))
+            data = ujson.loads(unicode(json_data, "ISO-8859-1"))
 
             self.global_tools_used = data['global_tools_used']
             self.player_tools_used = data['player_tools_used']
@@ -82,7 +91,7 @@ class GetData():
         with open('json_ents', 'r') as json_kills:
             print("Loading json_ents...")
             json_data = json_kills.read()
-            data = json.loads(unicode(json_data, "ISO-8859-1"))
+            data = ujson.loads(unicode(json_data, "ISO-8859-1"))
 
             self.global_ents_spawned = data['global_ents_spawned']
             self.player_ents_spawned = data['player_ents_spawned']
@@ -92,7 +101,7 @@ class GetData():
         with open('json_words', 'r') as json_words:
             print("Loading json_words...")
             json_data = json_words.read()
-            data = json.loads(unicode(json_data, "ISO-8859-1"))
+            data = ujson.loads(unicode(json_data, "ISO-8859-1"))
 
             global_data = data['global_words_said']
             player_data = data['player_words_said']
@@ -103,6 +112,29 @@ class GetData():
             for player, words in player_data.iteritems():
                 player_words = {word:num for word, num in words.iteritems() if word not in self.exclude_words}
                 self.player_words_said[player] = player_words
+            print("Loaded!")
+            print("")
+        # Kicks
+        with open('json_kicks', 'r') as json_kicks:
+            print("Loading json_kicks...")
+            json_data = json_kicks.read()
+            data = ujson.loads(unicode(json_data, "ISO-8859-1"))
+
+            self.global_kicks_given = data['global_kicks_given']
+            self.player_kicks_given = data['player_kicks_given']
+
+            self.global_kicks_received = data['global_kicks_received']
+            self.player_kicks_received = data['player_kicks_received']
+
+            print("Loaded!")
+            print("")
+        # Connections
+        with open('json_connections', 'r') as json_connections:
+            print("Loading json_connections...")
+            json_data = json_connections.read()
+            data = ujson.loads(unicode(json_data, "ISO-8859-1"))
+
+            self.global_connections = data['global_connections']
             print("Loaded!")
             print("")
 
@@ -121,20 +153,29 @@ class GetData():
         command = split_command[0]
 
         if len(split_command) == 1:
-            if command == 'top_deaths_global':
+            if command == 'top_deaths':
                 self.get_top_deaths()
 
-            if command == 'top_kills_global':
+            if command == 'top_kills':
                 self.get_top_kills()
 
-            if command == 'top_tools_global':
+            if command == 'top_tools':
                 self.get_top_tools()
 
-            if command == 'top_ents_global':
+            if command == 'top_ents':
                 self.get_top_ents()
 
-            if command == 'top_words_global':
+            if command == 'top_words':
                 self.get_top_words()
+
+            if command == 'top_kicks_given':
+                self.get_top_kicks_given()
+
+            if command == 'top_kicks_received':
+                self.get_top_kicks_received()
+
+            if command == 'top_connections':
+                self.get_top_connections()
 
         else:
             argument = " ".join(split_command[1:])
@@ -153,6 +194,15 @@ class GetData():
 
             if command == 'chat':
                 self.get_words_for(argument)
+
+            if command == 'kicks_given':
+                self.get_kicks_given_for(argument)
+
+            if command == 'kicks_received':
+                self.get_kicks_received_for(argument)
+
+            if command == 'connections':
+                self.get_connections_for(argument)
 
     @staticmethod
     def sort_dict(dictionary):
@@ -208,6 +258,38 @@ class GetData():
             print "{}. '{}': {} occurances".format(index+1, word, occurances)
             print ''
 
+    def get_top_kicks_given(self):
+        data = self.global_kicks_given
+        sorted_kicks = self.sort_dict(data)
+
+        # TODO: total kicks
+        for index, place in enumerate(sorted_kicks[:10]):
+            admin = place[0].encode('ascii', 'replace')
+            kicks = place[1]
+            print "{}. {}: {} kicks given".format(index+1, admin, kicks)
+            print ''
+
+    def get_top_kicks_received(self):
+        data = self.global_kicks_received
+        sorted_kicks = self.sort_dict(data)
+
+        for index, place in enumerate(sorted_kicks[:10]):
+            minge = place[0].encode('ascii', 'replace')
+            kicks = place[1]
+            print "{}. {}: {} kicks received".format(index+1, minge, kicks)
+            print ''
+
+    def get_top_connections(self):
+        data = self.global_connections
+        sorted_connections= self.sort_dict(data)
+
+        # TODO: total connections
+        for index, place in enumerate(sorted_connections[:10]):
+            name = place[0].encode('ascii', 'replace')
+            connections = place[1]
+            print "{}. {}: {} connections".format(index+1, name, connections)
+            print ''
+
     #### Player
     def get_deaths_for(self, name):
         data = self.player_deaths[name]
@@ -257,6 +339,34 @@ class GetData():
             word = place[0].encode('ascii', 'replace').lower().strip()
             occurances = place[1]
             print "{}. {} said '{}' {} times".format(index+1, name, word, occurances)
+            print ''
+
+    def get_connections_for(self, name):
+        data = self.global_connections[name]
+        print "{} has connected {} times total".format(name, data)
+
+    def get_kicks_given_for(self, name):
+        data = self.player_kicks_given[name]
+        sorted_kicks = self.sort_dict(data)
+
+        total = sum([count[1] for count in sorted_kicks])
+        print "{} total kicks given".format(total)
+        for index, place in enumerate(sorted_kicks[:10]):
+            minge = place[0].encode('ascii', 'replace')
+            kicks = place[1]
+            print "{}. {} kicked '{}' {} times".format(index+1, name, minge, kicks)
+            print ''
+
+    def get_kicks_received_for(self, name):
+        data = self.player_kicks_received[name]
+        sorted_kicks = self.sort_dict(data)
+
+        total = sum([count[1] for count in sorted_kicks])
+        print "{} total kicks received".format(total)
+        for index, place in enumerate(sorted_kicks[:10]):
+            admin = place[0].encode('ascii', 'replace')
+            kicks = place[1]
+            print "{}. {} was kicked by '{}' {} times".format(index+1, name, admin, kicks)
             print ''
 
 if __name__ == '__main__':
